@@ -1,0 +1,17 @@
+# 環境変数ファイル
+.env
+
+# 一時ファイル
+*.zip
+*.xbrl
+*.csv
+*.json
+
+# Go関連
+go.sum
+
+# macOS
+.DS_Store
+
+# ログファイル
+*.log 
