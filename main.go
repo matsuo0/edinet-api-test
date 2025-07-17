@@ -289,8 +289,8 @@ func extractAccountingPeriod(xbrlPath string) (string, string) {
 		
 		switch se := tok.(type) {
 		case xml.StartElement:
-			// 会計期間の開始日と終了日を探す
-			if se.Name.Local == "StartDate" || se.Name.Local == "EndDate" {
+			// startDateまたはendDateタグを探す
+			if se.Name.Local == "startDate" || se.Name.Local == "endDate" {
 				var date string
 				for {
 					t, err := decoder.Token()
@@ -306,9 +306,9 @@ func extractAccountingPeriod(xbrlPath string) (string, string) {
 					}
 				}
 				
-				if se.Name.Local == "StartDate" {
+				if se.Name.Local == "startDate" {
 					startDate = date
-				} else if se.Name.Local == "EndDate" {
+				} else if se.Name.Local == "endDate" {
 					endDate = date
 				}
 			}
@@ -341,27 +341,35 @@ func getQuarterInfo(startDate, endDate string) string {
 		return "不明"
 	}
 	
-	year := start.Year()
+	// 期間の長さを計算
+	duration := end.Sub(start)
+	days := int(duration.Hours() / 24)
 	
-	// 終了日の月から四半期を判定
-	endMonth := end.Month()
-	var quarter string
-	
-	switch {
-	case endMonth <= 3:
-		quarter = "Q4"
-	case endMonth <= 6:
-		quarter = "Q1"
-	case endMonth <= 9:
-		quarter = "Q2"
-	case endMonth <= 12:
-		quarter = "Q3"
+	// 年次報告書（約1年）か四半期報告書（約3ヶ月）かを判定
+	if days > 300 { // 年次報告書
+		year := end.Year()
+		// 3月決算の場合は前年度
+		if end.Month() == 3 {
+			year = year - 1
+		}
+		return fmt.Sprintf("%d年度", year)
+	} else { // 四半期報告書
+		year := end.Year()
+		endMonth := end.Month()
+		var quarter string
+		
+		switch {
+		case endMonth <= 3:
+			quarter = "Q4"
+			year = year - 1
+		case endMonth <= 6:
+			quarter = "Q1"
+		case endMonth <= 9:
+			quarter = "Q2"
+		case endMonth <= 12:
+			quarter = "Q3"
+		}
+		
+		return fmt.Sprintf("%d%s", year, quarter)
 	}
-	
-	// 年次報告書の場合は年度を調整
-	if endMonth == 3 {
-		year = year - 1
-	}
-	
-	return fmt.Sprintf("%d%s", year, quarter)
 }
