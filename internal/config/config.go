@@ -1,6 +1,7 @@
 package config
 
 import (
+	"flag"
 	"os"
 	"time"
 )
@@ -12,6 +13,7 @@ type Config struct {
 	EndDate      string
 	TargetSecCode string
 	OutputFile   string
+	QuarterOnly  bool
 }
 
 // JapaneseHeaders 日本語ヘッダー
@@ -46,12 +48,44 @@ func LoadConfig() (*Config, error) {
 		return nil, &ConfigError{Message: "EDINET_API_KEYが設定されていません。.envファイルを確認してください。"}
 	}
 
+	// コマンドライン引数を定義
+	var startDate, endDate, targetSecCode, outputFile string
+	var quarterOnly bool
+	
+	flag.StringVar(&startDate, "start", "", "開始日 (YYYY-MM-DD形式)")
+	flag.StringVar(&endDate, "end", "", "終了日 (YYYY-MM-DD形式)")
+	flag.StringVar(&targetSecCode, "code", "", "対象証券コード（4桁または5桁、空文字列で全企業）")
+	flag.StringVar(&outputFile, "output", "", "出力ファイル名")
+	flag.BoolVar(&quarterOnly, "quarter", false, "四半期報告書のみを対象にする")
+	
+	flag.Parse()
+
+	// デフォルト値を設定
+	if startDate == "" {
+		startDate = "2025-07-10"
+	}
+	if endDate == "" {
+		endDate = "2025-07-16"
+	}
+	if targetSecCode == "" {
+		targetSecCode = "" // 空文字列のままにする（全企業対象）
+	}
+	if outputFile == "" {
+		outputFile = "xbrl_financial_items.csv"
+	}
+
+	// 4桁の証券コードの場合は5桁に変換
+	if len(targetSecCode) == 4 {
+		targetSecCode = targetSecCode + "0"
+	}
+
 	return &Config{
 		APIKey:        apiKey,
-		StartDate:     "2025-07-10",
-		EndDate:       "2025-07-16",
-		TargetSecCode: "40260",
-		OutputFile:    "xbrl_financial_items.csv",
+		StartDate:     startDate,
+		EndDate:       endDate,
+		TargetSecCode: targetSecCode,
+		OutputFile:    outputFile,
+		QuarterOnly:   quarterOnly,
 	}, nil
 }
 
