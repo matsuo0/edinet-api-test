@@ -219,6 +219,49 @@ func (x *XBRLParser) GetQuarterInfo(startDate, endDate string) string {
 	}
 }
 
+// GetCorrectFiscalPeriod 提出日と文書タイプから正しい会計期間を計算
+func (x *XBRLParser) GetCorrectFiscalPeriod(submitDate string, docTypeCode string) string {
+	layout := "2006-01-02"
+	submit, err := time.Parse(layout, submitDate)
+	if err != nil {
+		return "不明"
+	}
+	
+	docTypeName := x.GetDocTypeName(docTypeCode)
+	
+	switch docTypeName {
+	case "有価証券報告書":
+		// 有価証券報告書の場合：提出年の前年度が会計期間
+		fiscalYear := submit.Year() - 1
+		return fmt.Sprintf("%d年度", fiscalYear)
+		
+	case "四半期報告書":
+		// 四半期報告書の場合：提出月から四半期を推定
+		fiscalYear := submit.Year() - 1
+		month := submit.Month()
+		
+		var quarter int
+		switch {
+		case month <= 3: // 1-3月提出 → 前年度第3四半期
+			quarter = 3
+		case month <= 6: // 4-6月提出 → 前年度第4四半期
+			quarter = 4
+		case month <= 9: // 7-9月提出 → 当年度第1四半期
+			quarter = 1
+			fiscalYear = submit.Year()
+		default: // 10-12月提出 → 当年度第2四半期
+			quarter = 2
+			fiscalYear = submit.Year()
+		}
+		
+		return fmt.Sprintf("%d年度第%d四半期", fiscalYear, quarter)
+		
+	default:
+		// その他の文書タイプの場合は従来の方法を使用
+		return "不明"
+	}
+}
+
 // GetDocTypeName 文書タイプコードを日本語名に変換
 func (x *XBRLParser) GetDocTypeName(docTypeCode string) string {
 	switch docTypeCode {

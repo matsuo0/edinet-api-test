@@ -133,9 +133,8 @@ func processDocument(doc models.DocInfo, dateStr string, edinetAPI *api.EdinetAP
 		return fmt.Errorf("XBRLパース失敗: %v", err)
 	}
 
-	// 会計期間を抽出
-	startDate, endDate := xbrlParser.ExtractAccountingPeriod(xbrlPath)
-	quarterInfo := xbrlParser.GetQuarterInfo(startDate, endDate)
+	// 提出日と文書タイプから正しい会計期間を計算
+	fiscalPeriod := xbrlParser.GetCorrectFiscalPeriod(dateStr, doc.DocTypeCode)
 
 	// 文書タイプ名を取得
 	docTypeName := xbrlParser.GetDocTypeName(doc.DocTypeCode)
@@ -149,7 +148,7 @@ func processDocument(doc models.DocInfo, dateStr string, edinetAPI *api.EdinetAP
 		doc.SecCode,       // 証券コード
 		doc.FilerName,     // 会社名
 		docTypeName,       // 文書タイプ
-		quarterInfo,       // 会計期間
+		fiscalPeriod,      // 会計期間（修正済み）
 	}
 	row = append(row, financialValues...)
 
