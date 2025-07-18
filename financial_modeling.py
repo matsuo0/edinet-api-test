@@ -94,19 +94,66 @@ class NintendoFinancialModeling:
         # 年度データのみで財務比率を計算
         ratios = self.annual_data.copy()
         
+        # データの検証と修正（直接実行）
+        print("データ検証中...")
+        for idx, row in ratios.iterrows():
+            print(f"{row['年度']}年度: 総資産={row['総資産']:,.0f}, 純資産={row['純資産']:,.0f}")
+            
+            # 総資産が欠損または異常値の場合、流動資産+固定資産で推定
+            if pd.isna(row['総資産']) or row['総資産'] <= 0:
+                if not pd.isna(row['流動資産']) and not pd.isna(row['固定資産']):
+                    estimated_total_assets = row['流動資産'] + row['固定資産']
+                    ratios.at[idx, '総資産'] = estimated_total_assets
+                    print(f"  総資産を修正: {estimated_total_assets:,.0f}")
+            
+            # 純資産が異常に小さい場合（総資産の10%未満）も修正
+            if not pd.isna(row['総資産']) and not pd.isna(row['総負債']) and row['純資産'] < row['総資産'] * 0.1:
+                print(f"  純資産が異常に小さい: {row['純資産']:,.0f} (総資産の{(row['純資産']/row['総資産']*100):.1f}%)")
+                estimated_equity = row['総資産'] - abs(row['総負債'])
+                ratios.at[idx, '純資産'] = estimated_equity
+                print(f"  純資産を推定値に修正: {estimated_equity:,.0f}")
+        
         # 収益性比率
         ratios['売上高利益率'] = (ratios['営業利益'] / ratios['売上高']) * 100
         ratios['当期純利益率'] = (ratios['当期純利益'] / ratios['売上高']) * 100
-        ratios['ROA'] = (ratios['当期純利益'] / ratios['総資産']) * 100
-        ratios['ROE'] = (ratios['当期純利益'] / ratios['純資産']) * 100
+        
+        # ROAの計算（総資産が有効な場合のみ）
+        ratios['ROA'] = np.where(
+            (ratios['総資産'] > 0) & (ratios['総資産'].notna()),
+            (ratios['当期純利益'] / ratios['総資産']) * 100,
+            np.nan
+        )
+        
+        # ROEの計算（純資産が有効な場合のみ、異常値を制限）
+        ratios['ROE'] = np.where(
+            (ratios['純資産'] > 10000000000) & (ratios['純資産'].notna()),  # 100億円以上
+            np.minimum((ratios['当期純利益'] / ratios['純資産']) * 100, 50),  # 最大50%に制限
+            np.nan
+        )
         
         # 効率性比率
-        ratios['総資産回転率'] = ratios['売上高'] / ratios['総資産']
-        ratios['固定資産回転率'] = ratios['売上高'] / ratios['固定資産']
+        ratios['総資産回転率'] = np.where(
+            (ratios['総資産'] > 0) & (ratios['総資産'].notna()),
+            ratios['売上高'] / ratios['総資産'],
+            np.nan
+        )
+        ratios['固定資産回転率'] = np.where(
+            (ratios['固定資産'] > 0) & (ratios['固定資産'].notna()),
+            ratios['売上高'] / ratios['固定資産'],
+            np.nan
+        )
         
         # 安全性比率
-        ratios['流動比率'] = (ratios['流動資産'] / ratios['流動負債']) * 100
-        ratios['固定比率'] = (ratios['固定資産'] / ratios['純資産']) * 100
+        ratios['流動比率'] = np.where(
+            (ratios['流動負債'] > 0) & (ratios['流動負債'].notna()),
+            (ratios['流動資産'] / ratios['流動負債']) * 100,
+            np.nan
+        )
+        ratios['固定比率'] = np.where(
+            (ratios['純資産'] > 0) & (ratios['純資産'].notna()),
+            (ratios['固定資産'] / ratios['純資産']) * 100,
+            np.nan
+        )
         
         # 成長率
         ratios['売上高成長率'] = ratios['売上高'].pct_change() * 100
@@ -115,6 +162,63 @@ class NintendoFinancialModeling:
         
         self.ratios = ratios
         return ratios
+    
+    def validate_and_fix_financial_data(self, df):
+        """財務データの検証と修正"""
+        print("財務データの検証中...")
+        
+        for idx, row in df.iterrows():
+            print(f"\n{row['年度']}年度のデータ検証:")
+            print(f"  元データ - 総資産: {row['総資産']:,.0f}, 純資産: {row['純資産']:,.0f}, 総負債: {row['総負債']:,.0f}")
+            
+            # 総資産の検証
+            if pd.isna(row['総資産']) or row['総資産'] <= 0:
+                print(f"  総資産が無効: {row['総資産']}")
+                # 流動資産 + 固定資産で推定
+                if not pd.isna(row['流動資産']) and not pd.isna(row['固定資産']):
+                    estimated_total_assets = row['流動資産'] + row['固定資産']
+                    df.at[idx, '総資産'] = estimated_total_assets
+                    print(f"  総資産を推定値に修正: {estimated_total_assets:,.0f}")
+            
+            # 純資産の検証
+            if pd.isna(row['純資産']) or row['純資産'] <= 0:
+                print(f"  純資産が無効: {row['純資産']}")
+                # 総資産 - 総負債で推定
+                if not pd.isna(row['総資産']) and not pd.isna(row['総負債']):
+                    estimated_equity = row['総資産'] - abs(row['総負債'])
+                    df.at[idx, '純資産'] = estimated_equity
+                    print(f"  純資産を推定値に修正: {estimated_equity:,.0f}")
+            
+            # 純資産が異常に小さい場合（総資産の10%未満）も修正
+            elif not pd.isna(row['総資産']) and not pd.isna(row['総負債']) and row['純資産'] < row['総資産'] * 0.1:
+                print(f"  純資産が異常に小さい: {row['純資産']:,.0f} (総資産の{(row['純資産']/row['総資産']*100):.1f}%)")
+                estimated_equity = row['総資産'] - abs(row['総負債'])
+                df.at[idx, '純資産'] = estimated_equity
+                print(f"  純資産を推定値に修正: {estimated_equity:,.0f}")
+            
+            # 負債の検証（負の値を正に修正）
+            if not pd.isna(row['総負債']) and row['総負債'] < 0:
+                print(f"  総負債が負の値: {row['総負債']}")
+                df.at[idx, '総負債'] = abs(row['総負債'])
+                print(f"  総負債を正の値に修正: {abs(row['総負債']):,.0f}")
+            
+            if not pd.isna(row['流動負債']) and row['流動負債'] < 0:
+                print(f"  流動負債が負の値: {row['流動負債']}")
+                df.at[idx, '流動負債'] = abs(row['流動負債'])
+                print(f"  流動負債を正の値に修正: {abs(row['流動負債']):,.0f}")
+            
+            if not pd.isna(row['固定負債']) and row['固定負債'] < 0:
+                print(f"  固定負債が負の値: {row['固定負債']}")
+                df.at[idx, '固定負債'] = abs(row['固定負債'])
+                print(f"  固定負債を正の値に修正: {abs(row['固定負債']):,.0f}")
+            
+            # 修正後の値を表示
+            print(f"  修正後 - 総資産: {df.at[idx, '総資産']:,.0f}, 純資産: {df.at[idx, '純資産']:,.0f}")
+            
+            # ROEの計算例を表示
+            if not pd.isna(df.at[idx, '当期純利益']) and not pd.isna(df.at[idx, '純資産']) and df.at[idx, '純資産'] > 0:
+                roe = (df.at[idx, '当期純利益'] / df.at[idx, '純資産']) * 100
+                print(f"  ROE計算例: {df.at[idx, '当期純利益']:,.0f} / {df.at[idx, '純資産']:,.0f} * 100 = {roe:.2f}%")
     
     def plot_financial_trends(self):
         """財務指標の推移をプロット"""

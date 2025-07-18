@@ -151,6 +151,7 @@ go tool cover -html=coverage.out
 ## 注意事項
 
 - EDINET APIキーが必要です（[EDINET API](https://disclosure.edinet-fsa.go.jp/guide/guide.html)で取得）
+- EDINET APIキーの取得はこちらから [EDINET API KEY](https://api.edinet-fsa.go.jp/api/auth/index.aspx?mode=1)
 - APIの利用制限にご注意ください
 - 大量のデータを取得する場合は、適切な間隔を空けて実行してください
 - 出力されるCSVファイルは一時ファイルと一緒に作成されます

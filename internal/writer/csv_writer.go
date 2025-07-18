@@ -8,6 +8,7 @@ import (
 
 	"edinet-api-test/internal/config"
 	"edinet-api-test/internal/models"
+	"edinet-api-test/internal/utils"
 )
 
 // CSVWriter CSV出力器
@@ -48,6 +49,7 @@ func (c *CSVWriter) WriteFinancialData(data *models.FinancialData) error {
 		data.CompanyName,
 		data.DocType,
 		data.Period,
+		// 基本財務データ
 		data.NetSales,
 		data.GrossProfit,
 		data.OperatingIncome,
@@ -71,6 +73,103 @@ func (c *CSVWriter) WriteFinancialData(data *models.FinancialData) error {
 		data.NetAssetsPerShare,
 		data.EquityRatio,
 		data.Dividends,
+		// 企業基本情報
+		data.DateOfEstablishment,
+		data.DateOfListing,
+		data.NumberOfEmployees,
+		data.ResearchAndDevelopmentExpenses,
+		"", // 研究開発費比率（計算値）
+		data.AccountingStandards,
+		data.NameOfIndependentAuditor,
+		data.ConsolidatedOrNonConsolidatedFinancialStatements,
+		data.FiscalYearEnd,
+		data.FiscalYearStart,
+		// 収益性指標
+		data.OperatingIncomeRatio,
+		data.OrdinaryIncomeRatio,
+		data.ProfitLossRatio,
+		data.GrossProfitRatio,
+		data.TotalAssetsTurnover,
+		data.NetAssetsTurnover,
+		data.OperatingCashFlowRatio,
+		data.InvestmentCashFlowRatio,
+		// 安全性指標
+		data.WorkingCapital,
+		data.DebtRatio,
+		data.FixedRatio,
+		data.FixedLongTermCoverageRatio,
+		// 追加財務データ
+		data.CostOfSales,
+		data.SellingGeneralAndAdministrativeExpenses,
+		data.NonOperatingIncome,
+		data.NonOperatingExpenses,
+		data.ExtraordinaryIncome,
+		data.ExtraordinaryLoss,
+		data.IncomeTaxes,
+		data.ProfitLossAttributableToMinorityShareholders,
+		data.ProfitLossAttributableToOwnersOfParent,
+		data.NotesAndAccountsReceivableTrade,
+		data.Inventories,
+		data.PropertyPlantAndEquipment,
+		data.IntangibleAssets,
+		data.InvestmentsAndOtherAssets,
+		data.ShortTermLoansPayable,
+		data.NotesAndAccountsPayableTrade,
+		data.LongTermLoansPayable,
+		data.BondsPayable,
+		data.ProvisionForRetirementBenefits,
+		data.ShareholdersEquity,
+		data.CapitalSurplus,
+		data.ValuationDifferenceOnAvailableForSaleSecurities,
+		data.TreasuryStock,
+		// 追加比率指標
+		data.CurrentRatio,
+		data.QuickRatio,
+		data.AccountsReceivableTurnoverDays,
+		data.InventoryTurnoverDays,
+		data.PropertyPlantAndEquipmentTurnover,
+		data.TotalCapitalTurnover,
+		data.OperatingCapitalTurnover,
+		data.InterestCoverageRatio,
+		data.DividendPayoutRatio,
+		data.DividendYield,
+		// キャッシュフロー関連
+		data.Depreciation,
+		data.IncreaseDecreaseInProvision,
+		data.IncreaseDecreaseInWorkingCapital,
+		data.ProceedsFromSalesOfInvestmentSecurities,
+		data.PaymentsForPurchaseOfInvestmentSecurities,
+		data.ProceedsFromLongTermLoansPayable,
+		data.RepaymentsOfLongTermLoansPayable,
+		data.FreeCashFlow,
+		data.CashFlowCoverageRatio,
+		// 成長性指標
+		data.NetSalesGrowthRate,
+		data.OperatingIncomeGrowthRate,
+		data.ProfitLossGrowthRate,
+		data.TotalAssetsGrowthRate,
+		data.NetSalesPerEmployee,
+		data.OperatingIncomePerEmployee,
+		// メタデータ
+		data.DataCollectionDate,
+		data.DataSource,
+		data.TaxonomyVersion,
+		// キャッシュフロー詳細
+		data.IncomeTaxesPaid,
+		data.InterestPaid,
+		data.InterestAndDividendsReceived,
+		data.DividendsReceived,
+		data.DividendsPaid,
+		data.PaymentsForPurchaseOfPropertyPlantAndEquipment,
+		data.ProceedsFromSalesOfPropertyPlantAndEquipment,
+		data.PaymentsForPurchaseOfIntangibleAssets,
+		data.ProceedsFromSalesOfIntangibleAssets,
+		data.ProceedsFromShortTermLoansPayable,
+		data.RepaymentsOfShortTermLoansPayable,
+		data.ProceedsFromLongTermLoansPayable,
+		data.RepaymentsOfLongTermLoansPayable,
+		data.ProceedsFromIssuanceOfBonds,
+		data.RedemptionOfBonds,
 	}
 	
 	return c.writer.Write(row)
@@ -92,10 +191,11 @@ func (c *CSVWriter) Close() error {
 	return c.file.Close()
 }
 
-// ExtractFinancialValues 財務タグから値を抽出
+// ExtractFinancialValues 財務タグから値を抽出（計算値も含む）
 func (c *CSVWriter) ExtractFinancialValues(values map[string]string) []string {
 	var result []string
 	
+	// 基本財務値を抽出
 	for _, tag := range c.financialTags {
 		found := ""
 		tagOnly := tag
@@ -113,5 +213,39 @@ func (c *CSVWriter) ExtractFinancialValues(values map[string]string) []string {
 		result = append(result, found)
 	}
 	
+	// 計算値を追加
+	ratios := utils.CalculateFinancialRatios(values)
+	metrics := utils.CalculateAdditionalMetrics(values)
+	
+	// 計算された比率を追加（順序をヘッダーに合わせる）
+	calculatedValues := []string{
+		"", // 設立年月日
+		"", // 上場年月日
+		values["jppfs_cor:NumberOfEmployees"], // 従業員数
+		values["jppfs_cor:ResearchAndDevelopmentExpenses"], // 研究開発費
+		ratios["jppfs_cor:ResearchAndDevelopmentExpenseRatio"], // 研究開発費比率
+		"", // 会計基準
+		"", // 監査法人
+		"", // 連結・単体
+		"", // 決算月
+		"", // 年度開始月
+		ratios["jppfs_cor:OperatingIncomeRatio"], // 営業利益率
+		ratios["jppfs_cor:OrdinaryIncomeRatio"], // 経常利益率
+		ratios["jppfs_cor:ProfitLossRatio"], // 当期純利益率
+		ratios["jppfs_cor:GrossProfitRatio"], // 売上高総利益率
+		ratios["jppfs_cor:TotalAssetsTurnover"], // 総資産回転率
+		ratios["jppfs_cor:NetAssetsTurnover"], // 自己資本回転率
+		ratios["jppfs_cor:OperatingCashFlowRatio"], // 営業CF比率
+		ratios["jppfs_cor:InvestmentCashFlowRatio"], // 投資CF比率
+		metrics["jppfs_cor:WorkingCapital"], // 運転資本
+		metrics["jppfs_cor:DebtRatio"], // 負債比率
+		metrics["jppfs_cor:FixedRatio"], // 固定比率
+		metrics["jppfs_cor:FixedLongTermCoverageRatio"], // 固定長期適合率
+		utils.GetCurrentTimestamp(), // データ取得日時
+		"EDINET", // データソース
+		"", // XBRLタクソノミーバージョン
+	}
+	
+	result = append(result, calculatedValues...)
 	return result
 } 

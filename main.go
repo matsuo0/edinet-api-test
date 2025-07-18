@@ -139,7 +139,7 @@ func processDocument(doc models.DocInfo, dateStr string, edinetAPI *api.EdinetAP
 	// 文書タイプ名を取得
 	docTypeName := xbrlParser.GetDocTypeName(doc.DocTypeCode)
 
-	// 財務値を抽出
+	// 財務値を抽出（計算値も含む）
 	financialValues := csvWriter.ExtractFinancialValues(values)
 
 	// 行データを作成
